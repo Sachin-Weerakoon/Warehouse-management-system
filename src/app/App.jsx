@@ -121,8 +121,6 @@ function App() {
             WarehouseList,
             {
               onSelectWarehouse: handleSelectWarehouse,
-              onAddWarehouse: () => {
-              },
               searchQuery: listSearch,
               onSearchChange: setListSearch
             }

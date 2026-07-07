@@ -1,43 +1,99 @@
 import { jsx, jsxs } from "react/jsx-runtime";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Search, ArrowRight, Clock, CheckCircle, XCircle, Package, X } from "lucide-react";
-import { WAREHOUSES } from "./WarehouseList";
-const TRANSFERS = [
-  { id: "TRF-0891", from: "Downtown Main Warehouse", to: "North Distribution Center", sku: "SKU-10045", product: "Wireless Headphones", qty: 120, priority: "High", status: "In Transit", requestedBy: "Sarah Mitchell", date: "2026-06-10", notes: "Urgent replenishment" },
-  { id: "TRF-0890", from: "South Storage Facility", to: "Downtown Main Warehouse", sku: "SKU-10089", product: "Smart Watch Pro", qty: 45, priority: "Normal", status: "Pending", requestedBy: "Priya Nair", date: "2026-06-10" },
-  { id: "TRF-0889", from: "North Distribution Center", to: "East Fulfillment Hub", sku: "SKU-10112", product: "USB-C Hub 7-in-1", qty: 200, priority: "Normal", status: "Pending", requestedBy: "James Patel", date: "2026-06-09" },
-  { id: "TRF-0888", from: "West Regional Depot", to: "South Storage Facility", sku: "SKU-10034", product: "Laptop Stand Adjustable", qty: 60, priority: "Low", status: "Completed", requestedBy: "Anna Lee", date: "2026-06-08", completedDate: "2026-06-09" },
-  { id: "TRF-0887", from: "Downtown Main Warehouse", to: "West Regional Depot", sku: "SKU-10078", product: "Mechanical Keyboard TKL", qty: 30, priority: "High", status: "Completed", requestedBy: "Alex Chen", date: "2026-06-07", completedDate: "2026-06-08" },
-  { id: "TRF-0886", from: "East Fulfillment Hub", to: "Downtown Main Warehouse", sku: "SKU-10156", product: "4K Webcam", qty: 15, priority: "High", status: "Cancelled", requestedBy: "Tom Nguyen", date: "2026-06-06", notes: "Supplier delay" },
-  { id: "TRF-0885", from: "North Distribution Center", to: "South Storage Facility", sku: "SKU-10023", product: "Phone Case MagSafe", qty: 500, priority: "Normal", status: "Completed", requestedBy: "James Patel", date: "2026-06-05", completedDate: "2026-06-06" },
-  { id: "TRF-0884", from: "South Storage Facility", to: "East Fulfillment Hub", sku: "SKU-10067", product: "Monitor Arm Dual", qty: 25, priority: "Normal", status: "Completed", requestedBy: "Priya Nair", date: "2026-06-04", completedDate: "2026-06-05" },
-  { id: "TRF-0883", from: "West Regional Depot", to: "North Distribution Center", sku: "SKU-10099", product: "SSD Drive 1TB", qty: 80, priority: "High", status: "Completed", requestedBy: "Anna Lee", date: "2026-06-03", completedDate: "2026-06-04" }
-];
+import api from "../../services/api";
+
 const STATUS_STYLES = {
   Pending: { badge: "bg-[#fff7e6] text-[#d97706]", icon: /* @__PURE__ */ jsx(Clock, { size: 13, color: "#d97706" }) },
   "In Transit": { badge: "bg-[#e9ebff] text-[#004ac6]", icon: /* @__PURE__ */ jsx(ArrowRight, { size: 13, color: "#004ac6" }) },
   Completed: { badge: "bg-[#e6f9ee] text-[#16a34a]", icon: /* @__PURE__ */ jsx(CheckCircle, { size: 13, color: "#16a34a" }) },
   Cancelled: { badge: "bg-[#fee2e2] text-[#dc2626]", icon: /* @__PURE__ */ jsx(XCircle, { size: 13, color: "#dc2626" }) }
 };
+
 const PRIORITY_STYLES = {
   High: "text-[#dc2626] bg-[#fee2e2]",
   Normal: "text-[#505f76] bg-[#f2f3ff]",
   Low: "text-[#737686] bg-[#f8f9ff]"
 };
+
 function TransferRequests() {
+  const [transfers, setTransfers] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ from: "", to: "", sku: "", product: "", qty: "", priority: "Normal", notes: "" });
-  const counts = { All: TRANSFERS.length, Pending: 0, "In Transit": 0, Completed: 0, Cancelled: 0 };
-  TRANSFERS.forEach((t) => {
-    counts[t.status]++;
+  const [form, setForm] = useState({
+    from: "",
+    to: "",
+    sku: "",
+    product: "",
+    qty: "",
+    priority: "Normal",
+    notes: ""
   });
-  const filtered = TRANSFERS.filter((t) => {
-    const matchSearch = search === "" || t.id.toLowerCase().includes(search.toLowerCase()) || t.product.toLowerCase().includes(search.toLowerCase()) || t.sku.toLowerCase().includes(search.toLowerCase());
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const transfersRes = await api.get("/transfers");
+      if (transfersRes.data && transfersRes.data.success) {
+        setTransfers(transfersRes.data.data);
+      }
+      
+      const warehousesRes = await api.get("/warehouses");
+      if (warehousesRes.data && warehousesRes.data.success) {
+        setWarehouses(warehousesRes.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching transfers data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleSubmitRequest = async () => {
+    try {
+      const res = await api.post("/transfers", form);
+      if (res.data && res.data.success) {
+        setShowModal(false);
+        setForm({
+          from: "",
+          to: "",
+          sku: "",
+          product: "",
+          qty: "",
+          priority: "Normal",
+          notes: ""
+        });
+        fetchData();
+      }
+    } catch (error) {
+      alert("Failed to submit request");
+    }
+  };
+
+  const counts = { All: transfers.length, Pending: 0, "In Transit": 0, Completed: 0, Cancelled: 0 };
+  transfers.forEach((t) => {
+    if (counts[t.status] !== undefined) {
+      counts[t.status]++;
+    }
+  });
+
+  const filtered = transfers.filter((t) => {
+    const matchSearch =
+      search === "" ||
+      t.transferNumber.toLowerCase().includes(search.toLowerCase()) ||
+      t.product.toLowerCase().includes(search.toLowerCase()) ||
+      t.sku.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "All" || t.status === statusFilter;
     return matchSearch && matchStatus;
   });
+
   return /* @__PURE__ */ jsxs("div", { className: "flex flex-col gap-[24px] w-full", children: [
     /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between", children: [
       /* @__PURE__ */ jsxs("div", { children: [
@@ -70,16 +126,16 @@ function TransferRequests() {
       ] }, s)) })
     ] }) }),
     /* @__PURE__ */ jsx("div", { className: "bg-white border border-[#c3c6d7] rounded-[12px] drop-shadow-[0px_1px_1px_rgba(0,0,0,0.05)] overflow-hidden", children: /* @__PURE__ */ jsxs("table", { className: "w-full", children: [
-      /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsx("tr", { className: "bg-[#f8f9ff] border-b border-[#c3c6d7]", children: ["Request ID", "From \u2192 To", "Product", "Qty", "Priority", "Requested By", "Date", "Status"].map((h) => /* @__PURE__ */ jsx("th", { className: "px-[16px] py-[10px] text-left font-['Inter:Medium',sans-serif] font-medium text-[#737686] text-[11px] tracking-[0.5px] uppercase", children: h }, h)) }) }),
-      /* @__PURE__ */ jsx("tbody", { children: filtered.map((t, i) => /* @__PURE__ */ jsxs("tr", { className: `border-b border-[#c3c6d7] hover:bg-[#f8f9ff] transition-colors ${i === filtered.length - 1 ? "border-b-0" : ""}`, children: [
+      /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsx("tr", { className: "bg-[#f8f9ff] border-b border-[#c3c6d7]", children: ["Request ID", "From → To", "Product", "Qty", "Priority", "Requested By", "Date", "Status"].map((h) => /* @__PURE__ */ jsx("th", { className: "px-[16px] py-[10px] text-left font-['Inter:Medium',sans-serif] font-medium text-[#737686] text-[11px] tracking-[0.5px] uppercase", children: h }, h)) }) }),
+      /* @__PURE__ */ jsx("tbody", { children: loading ? /* @__PURE__ */ jsx("tr", { children: /* @__PURE__ */ jsx("td", { colSpan: 8, className: "text-center py-4 font-['Inter:Regular',sans-serif] text-[13px] text-[#737686]", children: "Loading transfers..." }) }) : filtered.map((t, i) => /* @__PURE__ */ jsxs("tr", { className: `border-b border-[#c3c6d7] hover:bg-[#f8f9ff] transition-colors ${i === filtered.length - 1 ? "border-b-0" : ""}`, children: [
         /* @__PURE__ */ jsxs("td", { className: "px-[16px] py-[14px]", children: [
-          /* @__PURE__ */ jsx("p", { className: "font-['Liberation_Mono:Regular',monospace] text-[12px] text-[#131b2e]", children: t.id }),
+          /* @__PURE__ */ jsx("p", { className: "font-['Liberation_Mono:Regular',monospace] text-[12px] text-[#131b2e]", children: t.transferNumber }),
           t.notes && /* @__PURE__ */ jsx("p", { className: "font-['Inter:Regular',sans-serif] text-[#737686] text-[10px] mt-[1px] max-w-[100px] truncate", children: t.notes })
         ] }),
         /* @__PURE__ */ jsx("td", { className: "px-[16px] py-[14px]", children: /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-[4px] max-w-[200px]", children: [
-          /* @__PURE__ */ jsx("p", { className: "font-['Inter:Regular',sans-serif] text-[#505f76] text-[11px] truncate", children: t.from.replace(" Warehouse", "").replace(" Center", "").replace(" Facility", "").replace(" Hub", "").replace(" Depot", "") }),
+          /* @__PURE__ */ jsx("p", { className: "font-['Inter:Regular',sans-serif] text-[#505f76] text-[11px] truncate", children: t.fromWarehouse.replace(" Warehouse", "").replace(" Center", "").replace(" Facility", "").replace(" Hub", "").replace(" Depot", "") }),
           /* @__PURE__ */ jsx(ArrowRight, { size: 10, className: "text-[#737686] shrink-0" }),
-          /* @__PURE__ */ jsx("p", { className: "font-['Inter:Regular',sans-serif] text-[#505f76] text-[11px] truncate", children: t.to.replace(" Warehouse", "").replace(" Center", "").replace(" Facility", "").replace(" Hub", "").replace(" Depot", "") })
+          /* @__PURE__ */ jsx("p", { className: "font-['Inter:Regular',sans-serif] text-[#505f76] text-[11px] truncate", children: t.toWarehouse.replace(" Warehouse", "").replace(" Center", "").replace(" Facility", "").replace(" Hub", "").replace(" Depot", "") })
         ] }) }),
         /* @__PURE__ */ jsxs("td", { className: "px-[16px] py-[14px]", children: [
           /* @__PURE__ */ jsx("p", { className: "font-['Inter:Medium',sans-serif] font-medium text-[#131b2e] text-[12px]", children: t.product }),
@@ -102,7 +158,7 @@ function TransferRequests() {
           STATUS_STYLES[t.status].icon,
           /* @__PURE__ */ jsx("span", { className: `px-[7px] py-[2px] rounded-[4px] text-[11px] font-['Inter:Medium',sans-serif] font-medium ${STATUS_STYLES[t.status].badge}`, children: t.status })
         ] }) })
-      ] }, t.id)) })
+      ] }, t._id)) })
     ] }) }),
     showModal && /* @__PURE__ */ jsx("div", { className: "fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-[24px]", children: /* @__PURE__ */ jsxs("div", { className: "bg-white rounded-[16px] shadow-xl w-full max-w-[520px] border border-[#c3c6d7]", children: [
       /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between px-[24px] py-[18px] border-b border-[#c3c6d7]", children: [
@@ -114,7 +170,7 @@ function TransferRequests() {
           /* @__PURE__ */ jsx("label", { className: "font-['Inter:Medium',sans-serif] font-medium text-[#505f76] text-[12px] tracking-[0.12px] mb-[6px] block capitalize", children: field === "from" ? "From Warehouse" : "To Warehouse" }),
           /* @__PURE__ */ jsxs("select", { value: form[field], onChange: (e) => setForm((f) => ({ ...f, [field]: e.target.value })), className: "w-full px-[12px] py-[8px] rounded-[8px] border border-[#c3c6d7] font-['Inter:Regular',sans-serif] text-[12px] text-[#131b2e] bg-white focus:outline-none focus:border-[#004ac6]", children: [
             /* @__PURE__ */ jsx("option", { value: "", children: "Select warehouse..." }),
-            WAREHOUSES.map((w) => /* @__PURE__ */ jsx("option", { value: w.name, children: w.name }, w.id))
+            warehouses.map((w) => /* @__PURE__ */ jsx("option", { value: w.name, children: w.name }, w._id))
           ] })
         ] }, field)) }),
         [{ key: "sku", label: "SKU", placeholder: "e.g. SKU-10045" }, { key: "product", label: "Product Name", placeholder: "e.g. Wireless Headphones" }].map(({ key, label, placeholder }) => /* @__PURE__ */ jsxs("div", { children: [
@@ -142,11 +198,12 @@ function TransferRequests() {
       ] }),
       /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-end gap-[8px] px-[24px] py-[16px] border-t border-[#c3c6d7]", children: [
         /* @__PURE__ */ jsx("button", { onClick: () => setShowModal(false), className: "px-[16px] py-[8px] rounded-[8px] border border-[#c3c6d7] font-['Inter:Medium',sans-serif] font-medium text-[#505f76] text-[13px] hover:bg-[#f2f3ff] transition-colors", children: "Cancel" }),
-        /* @__PURE__ */ jsx("button", { onClick: () => setShowModal(false), className: "px-[16px] py-[8px] rounded-[8px] bg-[#2563eb] text-white font-['Inter:Medium',sans-serif] font-medium text-[13px] hover:bg-[#1d4ed8] transition-colors drop-shadow-[0px_1px_1px_rgba(0,0,0,0.05)]", children: "Submit Request" })
+        /* @__PURE__ */ jsx("button", { onClick: handleSubmitRequest, className: "px-[16px] py-[8px] rounded-[8px] bg-[#2563eb] text-white font-['Inter:Medium',sans-serif] font-medium text-[13px] hover:bg-[#1d4ed8] transition-colors drop-shadow-[0px_1px_1px_rgba(0,0,0,0.05)]", children: "Submit Request" })
       ] })
     ] }) })
   ] });
 }
+
 export {
   TransferRequests as default
 };

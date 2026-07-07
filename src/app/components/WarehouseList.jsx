@@ -1,25 +1,77 @@
 import { jsx, jsxs } from "react/jsx-runtime";
-import { Plus, Search, MapPin, Package, TrendingUp, ArrowRight } from "lucide-react";
-const WAREHOUSES = [
-  { id: "wh-001", name: "Downtown Main Warehouse", code: "DWN-001", address: "150 Elm Street", city: "Melbourne, VIC", manager: "Sarah Mitchell", totalCapacity: 5e3, usedCapacity: 4250, totalLocations: 240, activeSkus: 1843, status: "Active" },
-  { id: "wh-002", name: "North Distribution Center", code: "NDC-002", address: "890 Industrial Blvd", city: "Sydney, NSW", manager: "James Patel", totalCapacity: 8e3, usedCapacity: 4960, totalLocations: 380, activeSkus: 2910, status: "Active" },
-  { id: "wh-003", name: "South Storage Facility", code: "SSF-003", address: "445 Commerce Ave", city: "Brisbane, QLD", manager: "Priya Nair", totalCapacity: 3200, usedCapacity: 2912, totalLocations: 160, activeSkus: 1205, status: "Active" },
-  { id: "wh-004", name: "East Fulfillment Hub", code: "EFH-004", address: "1200 Harbor Drive", city: "Perth, WA", manager: "Tom Nguyen", totalCapacity: 6500, usedCapacity: 2145, totalLocations: 310, activeSkus: 878, status: "Maintenance" },
-  { id: "wh-005", name: "West Regional Depot", code: "WRD-005", address: "78 Logistics Park", city: "Adelaide, SA", manager: "Anna Lee", totalCapacity: 2800, usedCapacity: 1260, totalLocations: 140, activeSkus: 654, status: "Active" }
-];
+import { useState, useEffect } from "react";
+import { Plus, Search, MapPin, Package, TrendingUp, ArrowRight, X } from "lucide-react";
+import api from "../../services/api";
+
 const STATUS_STYLES = {
   Active: "bg-[#e6f9ee] text-[#16a34a]",
   Maintenance: "bg-[#fff7e6] text-[#d97706]",
   Inactive: "bg-[#fee2e2] text-[#dc2626]"
 };
-function WarehouseList({ onSelectWarehouse, onAddWarehouse, searchQuery, onSearchChange }) {
-  const totalCapacity = WAREHOUSES.reduce((s, w) => s + w.totalCapacity, 0);
-  const totalUsed = WAREHOUSES.reduce((s, w) => s + w.usedCapacity, 0);
-  const totalLocations = WAREHOUSES.reduce((s, w) => s + w.totalLocations, 0);
+
+function WarehouseList({ onSelectWarehouse, searchQuery, onSearchChange }) {
+  const [warehouses, setWarehouses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    code: "",
+    address: "",
+    city: "",
+    manager: "",
+    totalCapacity: ""
+  });
+
+  const fetchWarehouses = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get("/warehouses");
+      if (res.data && res.data.success) {
+        setWarehouses(res.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching warehouses:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWarehouses();
+  }, []);
+
+  const handleAddWarehouse = async () => {
+    try {
+      const res = await api.post("/warehouses", form);
+      if (res.data && res.data.success) {
+        setShowAddModal(false);
+        setForm({
+          name: "",
+          code: "",
+          address: "",
+          city: "",
+          manager: "",
+          totalCapacity: ""
+        });
+        fetchWarehouses();
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to add warehouse");
+    }
+  };
+
+  const totalCapacity = warehouses.reduce((s, w) => s + w.totalCapacity, 0);
+  const totalUsed = warehouses.reduce((s, w) => s + w.usedCapacity, 0);
+  const totalLocations = warehouses.reduce((s, w) => s + w.totalLocations, 0);
   const pendingTransfers = 12;
-  const filtered = WAREHOUSES.filter(
-    (w) => w.name.toLowerCase().includes(searchQuery.toLowerCase()) || w.code.toLowerCase().includes(searchQuery.toLowerCase()) || w.city.toLowerCase().includes(searchQuery.toLowerCase())
+
+  const filtered = warehouses.filter(
+    (w) =>
+      w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      w.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      w.city.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
   return /* @__PURE__ */ jsxs("div", { className: "flex flex-col gap-[24px] w-full", children: [
     /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between", children: [
       /* @__PURE__ */ jsxs("div", { children: [
@@ -29,7 +81,7 @@ function WarehouseList({ onSelectWarehouse, onAddWarehouse, searchQuery, onSearc
       /* @__PURE__ */ jsxs(
         "button",
         {
-          onClick: onAddWarehouse,
+          onClick: () => setShowAddModal(true),
           className: "flex items-center gap-[8px] bg-[#2563eb] text-white px-[16px] py-[9px] rounded-[8px] font-['Inter:Medium',sans-serif] font-medium text-[13px] tracking-[0.13px] drop-shadow-[0px_1px_1px_rgba(0,0,0,0.05)] hover:bg-[#1d4ed8] transition-colors",
           children: [
             /* @__PURE__ */ jsx(Plus, { size: 14, strokeWidth: 2.5 }),
@@ -39,9 +91,9 @@ function WarehouseList({ onSelectWarehouse, onAddWarehouse, searchQuery, onSearc
       )
     ] }),
     /* @__PURE__ */ jsx("div", { className: "grid grid-cols-4 gap-[16px]", children: [
-      { label: "Total Warehouses", value: WAREHOUSES.length.toString(), sub: `${WAREHOUSES.filter((w) => w.status === "Active").length} Active`, color: "#e9ebff", icon: /* @__PURE__ */ jsx(Package, { size: 20, color: "#004ac6" }) },
+      { label: "Total Warehouses", value: warehouses.length.toString(), sub: `${warehouses.filter((w) => w.status === "Active").length} Active`, color: "#e9ebff", icon: /* @__PURE__ */ jsx(Package, { size: 20, color: "#004ac6" }) },
       { label: "Total Capacity", value: `${(totalCapacity / 1e3).toFixed(1)}K`, sub: "Pallet positions", color: "#e9ebff", icon: /* @__PURE__ */ jsx(Package, { size: 20, color: "#004ac6" }) },
-      { label: "Capacity Used", value: `${Math.round(totalUsed / totalCapacity * 100)}%`, sub: `${totalUsed.toLocaleString()} / ${totalCapacity.toLocaleString()} units`, color: "#fff7e6", icon: /* @__PURE__ */ jsx(TrendingUp, { size: 20, color: "#d97706" }) },
+      { label: "Capacity Used", value: totalCapacity > 0 ? `${Math.round(totalUsed / totalCapacity * 100)}%` : "0%", sub: `${totalUsed.toLocaleString()} / ${totalCapacity.toLocaleString()} units`, color: "#fff7e6", icon: /* @__PURE__ */ jsx(TrendingUp, { size: 20, color: "#d97706" }) },
       { label: "Storage Locations", value: totalLocations.toLocaleString(), sub: `${pendingTransfers} pending transfers`, color: "#e6f9ee", icon: /* @__PURE__ */ jsx(MapPin, { size: 20, color: "#16a34a" }) }
     ].map((card, i) => /* @__PURE__ */ jsxs("div", { className: "bg-white border border-[#c3c6d7] rounded-[12px] p-[20px] drop-shadow-[0px_1px_1px_rgba(0,0,0,0.05)]", children: [
       /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between mb-[12px]", children: [
@@ -69,14 +121,14 @@ function WarehouseList({ onSelectWarehouse, onAddWarehouse, searchQuery, onSearc
       ] }),
       /* @__PURE__ */ jsx("div", { className: "overflow-x-auto", children: /* @__PURE__ */ jsxs("table", { className: "w-full", children: [
         /* @__PURE__ */ jsx("thead", { children: /* @__PURE__ */ jsx("tr", { className: "bg-[#f8f9ff]", children: ["Warehouse", "Location", "Capacity", "Utilization", "Locations", "Manager", "Status", ""].map((h) => /* @__PURE__ */ jsx("th", { className: "px-[16px] py-[10px] text-left font-['Inter:Medium',sans-serif] font-medium text-[#737686] text-[11px] tracking-[0.5px] uppercase border-b border-[#c3c6d7]", children: h }, h)) }) }),
-        /* @__PURE__ */ jsx("tbody", { children: filtered.map((w, idx) => {
-          const pct = Math.round(w.usedCapacity / w.totalCapacity * 100);
+        /* @__PURE__ */ jsx("tbody", { children: loading ? /* @__PURE__ */ jsx("tr", { children: /* @__PURE__ */ jsx("td", { colSpan: 8, className: "text-center py-4 font-['Inter:Regular',sans-serif] text-[13px] text-[#737686]", children: "Loading warehouses..." }) }) : filtered.map((w, idx) => {
+          const pct = w.totalCapacity > 0 ? Math.round(w.usedCapacity / w.totalCapacity * 100) : 0;
           const barColor = pct >= 90 ? "#dc2626" : pct >= 70 ? "#d97706" : "#16a34a";
           return /* @__PURE__ */ jsxs(
             "tr",
             {
               className: `border-b border-[#c3c6d7] hover:bg-[#f8f9ff] transition-colors cursor-pointer ${idx === filtered.length - 1 ? "border-b-0" : ""}`,
-              onClick: () => onSelectWarehouse(w.id),
+              onClick: () => onSelectWarehouse(w._id),
               children: [
                 /* @__PURE__ */ jsxs("td", { className: "px-[16px] py-[14px]", children: [
                   /* @__PURE__ */ jsx("p", { className: "font-['Inter:Medium',sans-serif] font-medium text-[#131b2e] text-[13px]", children: w.name }),
@@ -105,21 +157,63 @@ function WarehouseList({ onSelectWarehouse, onAddWarehouse, searchQuery, onSearc
                 /* @__PURE__ */ jsx("td", { className: "px-[16px] py-[14px]", children: /* @__PURE__ */ jsx("span", { className: `px-[8px] py-[3px] rounded-[4px] text-[11px] font-['Inter:Medium',sans-serif] font-medium ${STATUS_STYLES[w.status]}`, children: w.status }) }),
                 /* @__PURE__ */ jsx("td", { className: "px-[16px] py-[14px]", children: /* @__PURE__ */ jsxs("button", { className: "flex items-center gap-[4px] text-[#004ac6] font-['Inter:Medium',sans-serif] font-medium text-[12px] hover:text-[#2563eb] transition-colors", onClick: (e) => {
                   e.stopPropagation();
-                  onSelectWarehouse(w.id);
+                  onSelectWarehouse(w._id);
                 }, children: [
                   "View ",
                   /* @__PURE__ */ jsx(ArrowRight, { size: 12 })
                 ] }) })
               ]
             },
-            w.id
+            w._id
           );
         }) })
       ] }) })
-    ] })
+    ] }),
+    showAddModal && /* @__PURE__ */ jsx("div", { className: "fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-[24px]", children: /* @__PURE__ */ jsxs("div", { className: "bg-white rounded-[16px] shadow-xl w-full max-w-[520px] border border-[#c3c6d7]", children: [
+      /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between px-[24px] py-[18px] border-b border-[#c3c6d7]", children: [
+        /* @__PURE__ */ jsx("p", { className: "font-['Hanken_Grotesk:SemiBold',sans-serif] font-semibold text-[#131b2e] text-[18px]", children: "Add New Warehouse" }),
+        /* @__PURE__ */ jsx("button", { onClick: () => setShowAddModal(false), className: "p-[6px] rounded-[8px] hover:bg-[#f2f3ff] transition-colors text-[#737686]", children: /* @__PURE__ */ jsx(X, { size: 16 }) })
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "p-[24px] flex flex-col gap-[16px]", children: [
+        /* @__PURE__ */ jsxs("div", { className: "grid grid-cols-2 gap-[12px]", children: [
+          /* @__PURE__ */ jsxs("div", { children: [
+            /* @__PURE__ */ jsx("label", { className: "font-['Inter:Medium',sans-serif] font-medium text-[#505f76] text-[12px] tracking-[0.12px] mb-[6px] block", children: "Warehouse Name" }),
+            /* @__PURE__ */ jsx("input", { value: form.name, onChange: (e) => setForm((f) => ({ ...f, name: e.target.value })), placeholder: "e.g. West Coast Facility", className: "w-full px-[12px] py-[8px] rounded-[8px] border border-[#c3c6d7] font-['Inter:Regular',sans-serif] text-[12px] text-[#131b2e] placeholder:text-[#737686] focus:outline-none focus:border-[#004ac6] bg-white" })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { children: [
+            /* @__PURE__ */ jsx("label", { className: "font-['Inter:Medium',sans-serif] font-medium text-[#505f76] text-[12px] tracking-[0.12px] mb-[6px] block", children: "Code" }),
+            /* @__PURE__ */ jsx("input", { value: form.code, onChange: (e) => setForm((f) => ({ ...f, code: e.target.value })), placeholder: "e.g. WCF-006", className: "w-full px-[12px] py-[8px] rounded-[8px] border border-[#c3c6d7] font-['Inter:Regular',sans-serif] text-[12px] text-[#131b2e] placeholder:text-[#737686] focus:outline-none focus:border-[#004ac6] bg-white" })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: "grid grid-cols-2 gap-[12px]", children: [
+          /* @__PURE__ */ jsxs("div", { children: [
+            /* @__PURE__ */ jsx("label", { className: "font-['Inter:Medium',sans-serif] font-medium text-[#505f76] text-[12px] tracking-[0.12px] mb-[6px] block", children: "Street Address" }),
+            /* @__PURE__ */ jsx("input", { value: form.address, onChange: (e) => setForm((f) => ({ ...f, address: e.target.value })), placeholder: "e.g. 50 Ocean Boulevard", className: "w-full px-[12px] py-[8px] rounded-[8px] border border-[#c3c6d7] font-['Inter:Regular',sans-serif] text-[12px] text-[#131b2e] placeholder:text-[#737686] focus:outline-none focus:border-[#004ac6] bg-white" })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { children: [
+            /* @__PURE__ */ jsx("label", { className: "font-['Inter:Medium',sans-serif] font-medium text-[#505f76] text-[12px] tracking-[0.12px] mb-[6px] block", children: "City, State" }),
+            /* @__PURE__ */ jsx("input", { value: form.city, onChange: (e) => setForm((f) => ({ ...f, city: e.target.value })), placeholder: "e.g. Geelong, VIC", className: "w-full px-[12px] py-[8px] rounded-[8px] border border-[#c3c6d7] font-['Inter:Regular',sans-serif] text-[12px] text-[#131b2e] placeholder:text-[#737686] focus:outline-none focus:border-[#004ac6] bg-white" })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxs("div", { className: "grid grid-cols-2 gap-[12px]", children: [
+          /* @__PURE__ */ jsxs("div", { children: [
+            /* @__PURE__ */ jsx("label", { className: "font-['Inter:Medium',sans-serif] font-medium text-[#505f76] text-[12px] tracking-[0.12px] mb-[6px] block", children: "Manager Name" }),
+            /* @__PURE__ */ jsx("input", { value: form.manager, onChange: (e) => setForm((f) => ({ ...f, manager: e.target.value })), placeholder: "e.g. John Doe", className: "w-full px-[12px] py-[8px] rounded-[8px] border border-[#c3c6d7] font-['Inter:Regular',sans-serif] text-[12px] text-[#131b2e] placeholder:text-[#737686] focus:outline-none focus:border-[#004ac6] bg-white" })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { children: [
+            /* @__PURE__ */ jsx("label", { className: "font-['Inter:Medium',sans-serif] font-medium text-[#505f76] text-[12px] tracking-[0.12px] mb-[6px] block", children: "Capacity (Units)" }),
+            /* @__PURE__ */ jsx("input", { type: "number", value: form.totalCapacity, onChange: (e) => setForm((f) => ({ ...f, totalCapacity: e.target.value })), placeholder: "5000", className: "w-full px-[12px] py-[8px] rounded-[8px] border border-[#c3c6d7] font-['Inter:Regular',sans-serif] text-[12px] text-[#131b2e] placeholder:text-[#737686] focus:outline-none focus:border-[#004ac6] bg-white" })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-end gap-[8px] px-[24px] py-[16px] border-t border-[#c3c6d7]", children: [
+        /* @__PURE__ */ jsx("button", { onClick: () => setShowAddModal(false), className: "px-[16px] py-[8px] rounded-[8px] border border-[#c3c6d7] font-['Inter:Medium',sans-serif] font-medium text-[#505f76] text-[13px] hover:bg-[#f2f3ff] transition-colors", children: "Cancel" }),
+        /* @__PURE__ */ jsx("button", { onClick: handleAddWarehouse, className: "px-[16px] py-[8px] rounded-[8px] bg-[#2563eb] text-white font-['Inter:Medium',sans-serif] font-medium text-[13px] hover:bg-[#1d4ed8] transition-colors drop-shadow-[0px_1px_1px_rgba(0,0,0,0.05)]", children: "Save Warehouse" })
+      ] })
+    ] }) })
   ] });
 }
+
 export {
-  WAREHOUSES,
   WarehouseList as default
 };
